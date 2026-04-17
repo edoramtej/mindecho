@@ -15,13 +15,21 @@ export async function POST(req: NextRequest) {
       topics, riskLevel, riskKeywords, aiSummary, wellbeingScore,
     } = body;
 
-    // Use Clerk userId if authenticated, otherwise anonymous session token
-    const userId = clerkUserId ?? null;
+    // Resolve Clerk ID → internal DB user ID
+    let dbUserId: string | null = null;
+    if (clerkUserId) {
+      const user = await prisma.user.upsert({
+        where: { clerkId: clerkUserId },
+        update: {},
+        create: { clerkId: clerkUserId },
+      });
+      dbUserId = user.id;
+    }
 
     const entry = await prisma.entry.create({
       data: {
         sessionToken: sessionToken ?? null,
-        userId: userId ?? null,
+        userId: dbUserId,
         sociodemographicId: sociodemographicId ?? null,
         mode: mode ?? "VOICE",
         transcription: transcription ?? null,

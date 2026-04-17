@@ -6,11 +6,15 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    const { userId } = await auth();
-    if (!userId) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+    const { userId: clerkUserId } = await auth();
+    if (!clerkUserId) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+
+    // Resolve Clerk ID → internal DB user ID
+    const user = await prisma.user.findUnique({ where: { clerkId: clerkUserId } });
+    if (!user) return NextResponse.json({ entries: [], stats: null });
 
     const entries = await prisma.entry.findMany({
-      where: { userId },
+      where: { userId: user.id },
       orderBy: { createdAt: "desc" },
       take: 60,
       select: {
