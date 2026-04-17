@@ -7,7 +7,7 @@ export default function SignUpPage() {
         <div className="absolute top-1/3 -left-32 w-80 h-80 rounded-full bg-[#6C63FF]/15 blur-3xl" />
         <div className="absolute bottom-1/3 -right-32 w-80 h-80 rounded-full bg-[#FF6B9D]/10 blur-3xl" />
       </div>
-      <SignUp />
+      <SignUp forceRedirectUrl="/onboarding" />
     </div>
   );
 }
