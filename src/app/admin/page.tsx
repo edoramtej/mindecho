@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, Cell } from "recharts";
-import { Users, AlertTriangle, Heart, TrendingUp, Plus, X, Check, ToggleLeft, ToggleRight, Loader2 } from "lucide-react";
+import { Users, AlertTriangle, Heart, TrendingUp, Plus, X, Check, ToggleLeft, ToggleRight, Loader2, History } from "lucide-react";
 import NavBar from "@/components/NavBar";
 
 const TOOLTIP_STYLE = { background: "#1E1E3A", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "12px", fontSize: "11px" };
@@ -34,7 +34,8 @@ const initialResources: Resource[] = [
 ];
 
 export default function AdminPage() {
-  const [tab, setTab] = useState<"overview" | "population" | "crisis" | "alerts">("overview");
+  const [tab, setTab] = useState<"overview" | "population" | "crisis" | "alerts" | "history">("overview");
+  const [profileHistory, setProfileHistory] = useState<{ id: string; field: string; oldValue: string | null; newValue: string | null; changedAt: string; userId: string }[]>([]);
   const [data, setData] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(true);
   const [forbidden, setForbidden] = useState(false);
@@ -50,6 +51,9 @@ export default function AdminPage() {
       })
       .then(d => { if (d) setData(d); })
       .finally(() => setLoading(false));
+    fetch("/api/admin/profile-history")
+      .then(r => r.ok ? r.json() : [])
+      .then(d => { if (Array.isArray(d)) setProfileHistory(d); });
   }, []);
 
   const handleAddResource = () => {
@@ -65,6 +69,7 @@ export default function AdminPage() {
     { key: "population", label: "Población" },
     { key: "crisis", label: "Recursos de crisis" },
     { key: "alerts", label: "Alertas de riesgo" },
+    { key: "history", label: "Historial de perfiles" },
   ] as const;
 
   const overview = (data?.overview as Record<string, number>) ?? {};
@@ -297,6 +302,42 @@ export default function AdminPage() {
                           <button onClick={handleAddResource} className="flex-1 py-2.5 rounded-full bg-gradient-to-r from-[#6C63FF] to-[#FF6B9D] text-white text-sm font-semibold hover:opacity-90 cursor-pointer">Guardar</button>
                         </div>
                       </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Profile history */}
+              {tab === "history" && (
+                <div className="space-y-4 animate-fade-in">
+                  <div className="flex items-center gap-2 p-4 rounded-2xl bg-[#6C63FF]/10 border border-[#6C63FF]/20">
+                    <History className="w-4 h-4 text-[#6C63FF] flex-shrink-0" />
+                    <p className="text-sm text-slate-300">Historial de cambios en preferencias de usuario. Los IDs son internos — no se expone información personal.</p>
+                  </div>
+                  {profileHistory.length === 0 ? (
+                    <div className="glass-card rounded-2xl p-8 text-center text-slate-600 text-sm">No hay cambios registrados aún</div>
+                  ) : (
+                    <div className="glass-card rounded-2xl overflow-hidden">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-white/5">
+                            {["Usuario (ID)", "Campo", "Valor anterior", "Valor nuevo", "Fecha"].map(h => (
+                              <th key={h} className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wide">{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {profileHistory.map(entry => (
+                            <tr key={entry.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                              <td className="px-4 py-3 font-mono text-xs text-slate-500">{entry.userId.slice(0, 8)}…</td>
+                              <td className="px-4 py-3"><span className="px-2 py-0.5 rounded-full text-xs bg-white/10 text-slate-300">{entry.field}</span></td>
+                              <td className="px-4 py-3 text-slate-500 text-xs">{entry.oldValue ?? <span className="italic text-slate-600">vacío</span>}</td>
+                              <td className="px-4 py-3 text-white text-xs font-medium">{entry.newValue ?? <span className="italic text-slate-600">vacío</span>}</td>
+                              <td className="px-4 py-3 text-slate-500 text-xs">{new Date(entry.changedAt).toLocaleDateString("es", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
                   )}
                 </div>

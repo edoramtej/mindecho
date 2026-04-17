@@ -116,6 +116,7 @@ model User {
   updatedAt        DateTime          @updatedAt
   sociodemographic Sociodemographic?
   entries          Entry[]
+  profileHistory   ProfileHistory[]
 
   @@map("users")
 }
@@ -207,4 +208,18 @@ model PopulationSnapshot {
 
   @@unique([date])
   @@map("population_snapshots")
+}
+
+model ProfileHistory {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  field       String
+  oldValue    String?
+  newValue    String?
+  changedAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([changedAt])
+  @@map("profile_history")
 }

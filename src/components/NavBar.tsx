@@ -15,6 +15,7 @@ export default function NavBar() {
     ? [
         { href: "/record", label: "Nuevo registro" },
         { href: "/dashboard", label: "Mi evolución" },
+        { href: "/profile", label: "Mi perfil" },
       ]
     : [
         { href: "/record", label: "Comenzar" },
