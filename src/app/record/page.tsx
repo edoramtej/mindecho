@@ -1,7 +1,9 @@
 "use client";
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Brain, Send, RotateCcw, AlertCircle } from "lucide-react";
+import { Send, RotateCcw, AlertCircle } from "lucide-react";
 import Link from "next/link";
+import NavBar from "@/components/NavBar";
+import { useUser } from "@clerk/nextjs";
 import RecordButton from "@/components/RecordButton";
 import SentimentCard from "@/components/SentimentCard";
 import CrisisBanner from "@/components/CrisisBanner";
@@ -32,6 +34,7 @@ function getSessionToken(): string {
 }
 
 export default function RecordPage() {
+  const { isSignedIn } = useUser();
   const [phase, setPhase] = useState<Phase>("idle");
   const [seconds, setSeconds] = useState(0);
   const [text, setText] = useState("");
@@ -172,20 +175,7 @@ export default function RecordPage() {
         <div className="absolute bottom-1/4 right-1/4 w-80 h-80 rounded-full bg-[#FF6B9D]/10 blur-3xl" />
       </div>
 
-      {/* Nav */}
-      <div className="fixed top-4 left-4 right-4 z-50">
-        <div className="max-w-2xl mx-auto glass-card rounded-2xl px-5 py-3 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2 cursor-pointer">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#6C63FF] to-[#FF6B9D] flex items-center justify-center">
-              <Brain className="w-4 h-4 text-white" />
-            </div>
-            <span className="font-bold text-white">MindEcho</span>
-          </Link>
-          <Link href="/sign-up" className="text-xs text-slate-400 hover:text-white transition-colors cursor-pointer">
-            Guardar historial →
-          </Link>
-        </div>
-      </div>
+      <NavBar />
 
       <div className="w-full max-w-2xl mt-8 flex flex-col items-center gap-8">
         {/* Crisis banner for high risk */}
@@ -279,10 +269,10 @@ export default function RecordPage() {
                 <RotateCcw className="w-4 h-4" /> Nuevo registro
               </button>
               <Link
-                href="/sign-up"
+                href={isSignedIn ? "/dashboard" : "/sign-up"}
                 className="flex items-center gap-2 px-6 py-3 rounded-full bg-gradient-to-r from-[#6C63FF] to-[#FF6B9D] text-white text-sm font-semibold hover:opacity-90 transition-opacity cursor-pointer"
               >
-                Guardar y ver evolución →
+                {isSignedIn ? "Ver mi evolución →" : "Guardar y ver evolución →"}
               </Link>
             </div>
           </div>
