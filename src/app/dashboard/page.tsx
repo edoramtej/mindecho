@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
-import { Mic, TrendingUp, Flame, Calendar, Loader2 } from "lucide-react";
+import { Mic, TrendingUp, Flame, Calendar, Loader2, Trash2 } from "lucide-react";
 import Link from "next/link";
 import NavBar from "@/components/NavBar";
 import { useUser } from "@clerk/nextjs";
@@ -47,6 +47,7 @@ export default function DashboardPage() {
   const [entries, setEntries] = useState<Entry[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/dashboard")
@@ -54,6 +55,17 @@ export default function DashboardPage() {
       .then(data => { setEntries(data.entries ?? []); setStats(data.stats ?? null); })
       .finally(() => setLoading(false));
   }, []);
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("¿Eliminar este registro? Esta acción no se puede deshacer.")) return;
+    setDeletingId(id);
+    try {
+      const res = await fetch(`/api/entries/${id}`, { method: "DELETE" });
+      if (res.ok) setEntries(prev => prev.filter(e => e.id !== id));
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   const wellbeingChartData = entries
     .filter(e => e.wellbeingScore !== null)
@@ -199,7 +211,7 @@ export default function DashboardPage() {
               {recentEntries.length > 0 ? (
                 <div className="space-y-3">
                   {recentEntries.map((entry) => (
-                    <div key={entry.id} className="flex items-center gap-3 p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors cursor-default">
+                    <div key={entry.id} className="flex items-center gap-3 p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors group">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
                           {entry.sentiment && (
@@ -223,6 +235,16 @@ export default function DashboardPage() {
                           <p className="text-xs text-slate-600">/10</p>
                         </div>
                       )}
+                      <button
+                        onClick={() => handleDelete(entry.id)}
+                        disabled={deletingId === entry.id}
+                        aria-label="Eliminar registro"
+                        className="flex-shrink-0 opacity-0 group-hover:opacity-100 p-1.5 rounded-lg text-slate-600 hover:text-red-400 hover:bg-red-400/10 transition-all duration-200 cursor-pointer disabled:opacity-40"
+                      >
+                        {deletingId === entry.id
+                          ? <Loader2 className="w-4 h-4 animate-spin" />
+                          : <Trash2 className="w-4 h-4" />}
+                      </button>
                     </div>
                   ))}
                 </div>
