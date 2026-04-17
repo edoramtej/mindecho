@@ -1,6 +1,6 @@
 "use client";
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Send, RotateCcw, AlertCircle } from "lucide-react";
+import { Send, RotateCcw, AlertCircle, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import NavBar from "@/components/NavBar";
 import { useUser } from "@clerk/nextjs";
@@ -85,6 +85,15 @@ export default function RecordPage() {
   const handleMicClick = () => {
     if (phase === "idle" || phase === "error") startRecording();
     else if (phase === "recording") stopRecording();
+  };
+
+  const handleReRecord = () => {
+    audioBlobRef.current = null;
+    audioChunksRef.current = [];
+    setSeconds(0);
+    setTranscription("");
+    setErrorMsg("");
+    startRecording();
   };
 
   const handleAnalyze = async () => {
@@ -230,6 +239,14 @@ export default function RecordPage() {
                   {formatTime(seconds)}
                 </div>
               )}
+              {phase === "recorded" && (
+                <button
+                  onClick={handleReRecord}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-full text-sm text-slate-400 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 transition-all duration-200 cursor-pointer"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" /> Volver a grabar
+                </button>
+              )}
               {(phase === "transcribing" || phase === "analyzing") && (
                 <div className="flex items-center gap-2 text-sm text-slate-400">
                   <div className="flex gap-1">
@@ -237,7 +254,7 @@ export default function RecordPage() {
                       <span key={i} className="w-1.5 h-1.5 rounded-full bg-[#6C63FF] animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />
                     ))}
                   </div>
-                  {phase === "transcribing" ? "Transcribiendo con Whisper AI..." : "Analizando con Claude AI..."}
+                  {phase === "transcribing" ? "Transcribiendo con Whisper AI..." : "Analizando tu bienestar emocional..."}
                 </div>
               )}
             </div>
