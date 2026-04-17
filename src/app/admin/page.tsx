@@ -68,7 +68,7 @@ export default function AdminPage() {
 
   return (
     <>
-      <NavBar isLoggedIn isAdmin />
+      <NavBar />
       <main className="min-h-screen px-4 pt-24 pb-16">
         <div className="fixed inset-0 -z-10 pointer-events-none">
           <div className="absolute top-1/4 -left-32 w-80 h-80 rounded-full bg-[#6C63FF]/8 blur-3xl" />

@@ -1,17 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   try {
+    const { userId: clerkUserId } = await auth();
     const body = await req.json();
     const {
-      sessionToken, userId, sociodemographicId,
+      sessionToken, sociodemographicId,
       mode, transcription, textContent,
       sentiment, sentimentScore, emotionCategories,
       topics, riskLevel, riskKeywords, aiSummary, wellbeingScore,
     } = body;
+
+    // Use Clerk userId if authenticated, otherwise anonymous session token
+    const userId = clerkUserId ?? null;
 
     const entry = await prisma.entry.create({
       data: {
