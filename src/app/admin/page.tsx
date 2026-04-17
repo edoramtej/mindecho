@@ -37,14 +37,18 @@ export default function AdminPage() {
   const [tab, setTab] = useState<"overview" | "population" | "crisis" | "alerts">("overview");
   const [data, setData] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(true);
+  const [forbidden, setForbidden] = useState(false);
   const [resources, setResources] = useState<Resource[]>(initialResources);
   const [showModal, setShowModal] = useState(false);
   const [newResource, setNewResource] = useState({ name: "", country: "", type: "GENERAL", channel: "PHONE", contact: "", schedule: "24/7", isFree: true });
 
   useEffect(() => {
     fetch("/api/admin")
-      .then(r => r.json())
-      .then(d => setData(d))
+      .then(async r => {
+        if (r.status === 403) { setForbidden(true); return null; }
+        return r.json();
+      })
+      .then(d => { if (d) setData(d); })
       .finally(() => setLoading(false));
   }, []);
 
@@ -72,6 +76,21 @@ export default function AdminPage() {
   const wellbeingByEmployment = ((data?.wellbeingByEmployment as { name: string; score: number; count: number }[]) ?? [])
     .map(d => ({ ...d, name: employmentLabels[d.name] ?? d.name }));
   const riskEntries = (data?.riskEntries as { risk: string; keywords: string[]; country: string; time: string }[]) ?? [];
+
+  if (forbidden) {
+    return (
+      <>
+        <NavBar />
+        <div className="min-h-screen flex items-center justify-center px-4">
+          <div className="text-center max-w-sm">
+            <div className="text-5xl mb-4">🔒</div>
+            <h1 className="text-2xl font-bold text-white mb-2">Acceso denegado</h1>
+            <p className="text-slate-400 text-sm">No tienes permisos de administrador. Contacta al equipo si crees que esto es un error.</p>
+          </div>
+        </div>
+      </>
+    );
+  }
 
   return (
     <>
