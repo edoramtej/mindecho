@@ -1,13 +1,210 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum GenderIdentity {
+  WOMAN_CIS
+  MAN_CIS
+  WOMAN_TRANS
+  MAN_TRANS
+  NON_BINARY
+  GENDER_FLUID
+  AGENDER
+  OTHER
+  PREFER_NOT_TO_SAY
+}
+
+enum AgeRange {
+  UNDER_18
+  AGE_18_25
+  AGE_26_35
+  AGE_36_45
+  AGE_46_55
+  AGE_56_65
+  OVER_65
+  PREFER_NOT_TO_SAY
+}
+
+enum EducationLevel {
+  NO_FORMAL
+  PRIMARY
+  SECONDARY
+  TECHNICAL
+  UNDERGRADUATE
+  POSTGRADUATE
+  PREFER_NOT_TO_SAY
+}
+
+enum EmploymentStatus {
+  EMPLOYED_FULL
+  EMPLOYED_PART
+  SELF_EMPLOYED
+  UNEMPLOYED
+  STUDENT
+  RETIRED
+  UNABLE_TO_WORK
+  PREFER_NOT_TO_SAY
+}
+
+enum MaritalStatus {
+  SINGLE
+  IN_RELATIONSHIP
+  MARRIED
+  DIVORCED
+  WIDOWED
+  PREFER_NOT_TO_SAY
+}
+
+enum SentimentLevel {
+  VERY_POSITIVE
+  POSITIVE
+  NEUTRAL
+  NEGATIVE
+  VERY_NEGATIVE
+}
+
+enum RiskLevel {
+  NONE
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum EntryMode {
+  VOICE
+  TEXT
+  BOTH
+}
+
+enum CrisisContactType {
+  SUICIDE_IDEATION
+  DOMESTIC_VIOLENCE
+  ANXIETY_CRISIS
+  SUBSTANCE_ABUSE
+  IDENTITY_CRISIS
+  GENERAL
+}
+
+enum ContactChannel {
+  PHONE
+  WHATSAPP
+  CHAT_ONLINE
+  EMAIL
+}
+
+enum UserRole {
+  USER
+  RESEARCHER
+  ADMIN
+}
+
+// ─── Models ──────────────────────────────────────────────────────────────────
+
+model User {
+  id               String            @id @default(cuid())
+  clerkId          String            @unique
+  email            String?
+  role             UserRole          @default(USER)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  sociodemographic Sociodemographic?
+  entries          Entry[]
+
+  @@map("users")
+}
+
+model Sociodemographic {
+  id                String            @id @default(cuid())
+  sessionToken      String?           @unique
+  userId            String?           @unique
+  user              User?             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ageRange          AgeRange?
+  genderIdentity    GenderIdentity?
+  genderOther       String?
+  country           String?
+  region            String?
+  educationLevel    EducationLevel?
+  employmentStatus  EmploymentStatus?
+  maritalStatus     MaritalStatus?
+  hasPriorDiagnosis Boolean?
+  consentResearch   Boolean           @default(false)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  entries           Entry[]
+
+  @@map("sociodemographic")
+}
+
+model Entry {
+  id                 String            @id @default(cuid())
+  sessionToken       String?
+  userId             String?
+  user               User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
+  sociodemographicId String?
+  sociodemographic   Sociodemographic? @relation(fields: [sociodemographicId], references: [id], onDelete: SetNull)
+  mode               EntryMode         @default(VOICE)
+  transcription      String?           @db.Text
+  textContent        String?           @db.Text
+  audioDeletedAt     DateTime?
+  sentiment          SentimentLevel?
+  sentimentScore     Float?
+  emotionCategories  String[]
+  topics             String[]
+  riskLevel          RiskLevel         @default(NONE)
+  riskKeywords       String[]
+  aiSummary          String?           @db.Text
+  wellbeingScore     Float?
+  createdAt          DateTime          @default(now())
+
+  @@index([userId])
+  @@index([sessionToken])
+  @@index([createdAt])
+  @@index([riskLevel])
+  @@map("entries")
+}
+
+model CrisisResource {
+  id            String            @id @default(cuid())
+  name          String
+  description   String?
+  country       String
+  region        String?
+  situationType CrisisContactType
+  channel       ContactChannel
+  contactValue  String
+  schedule      String?
+  isFree        Boolean           @default(true)
+  isActive      Boolean           @default(true)
+  timesShown    Int               @default(0)
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  @@index([country])
+  @@index([situationType])
+  @@index([isActive])
+  @@map("crisis_resources")
+}
+
+model PopulationSnapshot {
+  id                    String   @id @default(cuid())
+  date                  DateTime @db.Date
+  totalEntries          Int      @default(0)
+  sentimentDistribution Json
+  riskDistribution      Json
+  topTopics             Json
+  byGender              Json
+  byAgeRange            Json
+  byCountry             Json
+  byEmployment          Json
+  createdAt             DateTime @default(now())
+
+  @@unique([date])
+  @@map("population_snapshots")
 }
