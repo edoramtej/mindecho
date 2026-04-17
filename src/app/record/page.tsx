@@ -108,8 +108,13 @@ export default function RecordPage() {
         const res = await fetch("/api/transcribe", { method: "POST", body: formData });
         if (!res.ok) throw new Error("Error en transcripción");
         const data = await res.json();
-        savedTranscription = data.transcription;
-        finalText = savedTranscription + (text.trim() ? `\n\n${text.trim()}` : "");
+        savedTranscription = typeof data.transcription === "string" ? data.transcription.trim() : "";
+        if (!savedTranscription && !hasText) {
+          setErrorMsg("No se detectó voz en el audio. Intenta hablar más cerca del micrófono o escribe tu mensaje.");
+          setPhase("recorded");
+          return;
+        }
+        finalText = (savedTranscription + (text.trim() ? `\n\n${text.trim()}` : "")).trim();
         setTranscription(savedTranscription);
       } catch {
         if (!hasText) {
@@ -174,7 +179,7 @@ export default function RecordPage() {
     recording:   { title: "Escuchándote...", subtitle: "Habla con calma. Presiona para detener cuando termines." },
     recorded:    { title: "Grabación lista", subtitle: transcription ? `"${transcription.slice(0, 80)}${transcription.length > 80 ? "..." : ""}"` : "Tu audio está listo. Presiona Analizar cuando quieras." },
     transcribing:{ title: "Transcribiendo...", subtitle: "Convirtiendo tu voz a texto con Whisper AI..." },
-    analyzing:   { title: "Analizando...", subtitle: "Claude está evaluando tu bienestar emocional..." },
+    analyzing:   { title: "Analizando...", subtitle: "La IA está evaluando tu bienestar emocional..." },
     error:       { title: "Algo salió mal", subtitle: errorMsg },
   };
 
