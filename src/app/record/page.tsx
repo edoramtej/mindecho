@@ -87,18 +87,18 @@ export default function RecordPage() {
     else if (phase === "recording") stopRecording();
   };
 
-  const handleReRecord = () => {
+  const handleReRecord = async () => {
     audioBlobRef.current = null;
     audioChunksRef.current = [];
     setSeconds(0);
     setTranscription("");
     setErrorMsg("");
-    startRecording();
+    await startRecording();
   };
 
   const handleAnalyze = async () => {
     setErrorMsg("");
-    const hasAudio = !!(audioBlobRef.current && audioBlobRef.current.size > 0 && seconds > 0);
+    const hasAudio = !!(audioBlobRef.current && audioBlobRef.current.size > 0);
     const hasText = text.trim().length > 0;
 
     if (!hasAudio && !hasText) {
