@@ -60,15 +60,23 @@ export default function RecordPage() {
   const startRecording = useCallback(async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
+      // Pick the best format Whisper accepts, in order of reliability
+      const mimeType = [
+        "audio/webm;codecs=opus",
+        "audio/webm",
+        "audio/ogg;codecs=opus",
+        "audio/mp4",
+      ].find(t => MediaRecorder.isTypeSupported(t)) ?? "";
+      const mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : {});
       audioChunksRef.current = [];
       mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
       mediaRecorder.onstop = () => {
-        audioBlobRef.current = new Blob(audioChunksRef.current, { type: "audio/webm" });
+        const actualType = mediaRecorder.mimeType || mimeType || "audio/webm";
+        audioBlobRef.current = new Blob(audioChunksRef.current, { type: actualType });
         stream.getTracks().forEach(t => t.stop());
         setPhase("recorded");
       };
-      mediaRecorder.start(250);
+      mediaRecorder.start(500);
       mediaRecorderRef.current = mediaRecorder;
       setPhase("recording");
       setSeconds(0);
@@ -112,11 +120,13 @@ export default function RecordPage() {
     if (hasAudio) {
       setPhase("transcribing");
       try {
+        const blobType = audioBlobRef.current!.type;
+        const ext = blobType.includes("ogg") ? "ogg" : blobType.includes("mp4") ? "mp4" : "webm";
         const formData = new FormData();
-        formData.append("audio", audioBlobRef.current!, "audio.webm");
+        formData.append("audio", audioBlobRef.current!, `audio.${ext}`);
         const res = await fetch("/api/transcribe", { method: "POST", body: formData });
-        if (!res.ok) throw new Error("Error en transcripción");
         const data = await res.json();
+        if (!res.ok) throw new Error(data.error ?? "Error en transcripción");
         savedTranscription = typeof data.transcription === "string" ? data.transcription.trim() : "";
         if (!savedTranscription && !hasText) {
           setErrorMsg("No se detectó voz en el audio. Intenta hablar más cerca del micrófono o escribe tu mensaje.");
@@ -125,15 +135,14 @@ export default function RecordPage() {
         }
         finalText = (savedTranscription + (text.trim() ? `\n\n${text.trim()}` : "")).trim();
         setTranscription(savedTranscription);
-      } catch {
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "No se pudo transcribir el audio.";
         if (!hasText) {
-          // No fallback — nothing to analyze
-          setErrorMsg("No se pudo transcribir el audio. Intenta escribir tu mensaje.");
+          setErrorMsg(msg);
           setPhase("recorded");
           return;
         }
-        // Has text typed — fall through to text-only analysis
-        setErrorMsg("No se pudo transcribir el audio. Analizando tu texto escrito...");
+        setErrorMsg(`${msg} Analizando tu texto escrito...`);
       }
     }
 
