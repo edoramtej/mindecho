@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
 
 export const dynamic = "force-dynamic";
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-const SYSTEM_PROMPT = `Eres un analizador experto de bienestar emocional y salud mental. 
+const SYSTEM_PROMPT = `Eres un analizador experto de bienestar emocional y salud mental.
 Analiza el texto proporcionado y responde ÚNICAMENTE con un JSON válido con esta estructura exacta:
 
 {
@@ -34,19 +34,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Texto insuficiente para analizar" }, { status: 400 });
     }
 
-    const message = await anthropic.messages.create({
-      model: "claude-haiku-4-5-20251001",
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
       max_tokens: 600,
-      system: SYSTEM_PROMPT,
-      messages: [{ role: "user", content: `Analiza este texto:\n\n"${text}"` }],
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: `Analiza este texto:\n\n"${text}"` },
+      ],
     });
 
-    const content = message.content[0];
-    if (content.type !== "text") {
-      throw new Error("Respuesta inesperada de Claude");
-    }
+    const content = response.choices[0].message.content;
+    if (!content) throw new Error("Respuesta vacía de OpenAI");
 
-    const analysis = JSON.parse(content.text);
+    const analysis = JSON.parse(content);
     return NextResponse.json(analysis);
   } catch (error) {
     console.error("Analysis error:", error);
