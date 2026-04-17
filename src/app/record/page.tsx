@@ -1,29 +1,46 @@
 "use client";
-import { useState, useRef, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { Brain, Send, RotateCcw } from "lucide-react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { Brain, Send, RotateCcw, AlertCircle } from "lucide-react";
 import Link from "next/link";
 import RecordButton from "@/components/RecordButton";
 import SentimentCard from "@/components/SentimentCard";
 import CrisisBanner from "@/components/CrisisBanner";
 
-type Phase = "idle" | "recording" | "recorded" | "transcribing" | "analyzing" | "done";
+type Phase = "idle" | "recording" | "recorded" | "transcribing" | "analyzing" | "done" | "error";
+type RiskLevel = "NONE" | "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+type SentimentLevel = "VERY_POSITIVE" | "POSITIVE" | "NEUTRAL" | "NEGATIVE" | "VERY_NEGATIVE";
 
-const MOCK_RESULT = {
-  sentiment: "NEGATIVE" as const,
-  sentimentScore: 0.72,
-  wellbeingScore: 4.2,
-  topics: ["Trabajo", "Estrés", "Familia", "Incertidumbre"],
-  aiSummary: "Noto que estás cargando bastante peso en este momento, especialmente relacionado con el trabajo y la dinámica familiar. Es completamente válido sentirse agotado ante tanta presión simultánea. Recuerda que expresar estos sentimientos ya es un primer paso valioso.",
-  riskLevel: "LOW" as "NONE" | "LOW" | "MEDIUM" | "HIGH" | "CRITICAL",
-};
+interface AnalysisResult {
+  sentiment: SentimentLevel;
+  sentimentScore: number;
+  wellbeingScore: number;
+  emotionCategories: string[];
+  topics: string[];
+  riskLevel: RiskLevel;
+  riskKeywords: string[];
+  aiSummary: string;
+}
+
+function getSessionToken(): string {
+  const key = "mindecho_session";
+  let token = sessionStorage.getItem(key);
+  if (!token) {
+    token = crypto.randomUUID();
+    sessionStorage.setItem(key, token);
+  }
+  return token;
+}
 
 export default function RecordPage() {
-  const router = useRouter();
   const [phase, setPhase] = useState<Phase>("idle");
   const [seconds, setSeconds] = useState(0);
   const [text, setText] = useState("");
-  const [result, setResult] = useState<typeof MOCK_RESULT | null>(null);
+  const [transcription, setTranscription] = useState("");
+  const [result, setResult] = useState<AnalysisResult | null>(null);
+  const [errorMsg, setErrorMsg] = useState("");
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const audioBlobRef = useRef<Blob | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -37,21 +54,116 @@ export default function RecordPage() {
 
   const formatTime = (s: number) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
 
+  const startRecording = useCallback(async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
+      audioChunksRef.current = [];
+      mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
+      mediaRecorder.onstop = () => {
+        audioBlobRef.current = new Blob(audioChunksRef.current, { type: "audio/webm" });
+        stream.getTracks().forEach(t => t.stop());
+        setPhase("recorded");
+      };
+      mediaRecorder.start(250);
+      mediaRecorderRef.current = mediaRecorder;
+      setPhase("recording");
+      setSeconds(0);
+    } catch {
+      setErrorMsg("No se pudo acceder al micrófono. Verifica los permisos del navegador.");
+      setPhase("error");
+    }
+  }, []);
+
+  const stopRecording = useCallback(() => {
+    mediaRecorderRef.current?.stop();
+  }, []);
+
   const handleMicClick = () => {
-    if (phase === "idle") { setPhase("recording"); setSeconds(0); }
-    else if (phase === "recording") { setPhase("recorded"); }
+    if (phase === "idle" || phase === "error") startRecording();
+    else if (phase === "recording") stopRecording();
   };
 
   const handleAnalyze = async () => {
-    setPhase("transcribing");
-    await new Promise(r => setTimeout(r, 1500));
+    setErrorMsg("");
+    const hasAudio = audioBlobRef.current && seconds > 0;
+    const hasText = text.trim().length > 5;
+
+    if (!hasAudio && !hasText) {
+      setErrorMsg("Graba audio o escribe algo antes de analizar.");
+      return;
+    }
+
+    let finalText = text;
+
+    if (hasAudio) {
+      setPhase("transcribing");
+      try {
+        const formData = new FormData();
+        formData.append("audio", audioBlobRef.current!, "audio.webm");
+        const res = await fetch("/api/transcribe", { method: "POST", body: formData });
+        if (!res.ok) throw new Error("Error en transcripción");
+        const data = await res.json();
+        finalText = data.transcription + (text ? `\n\n${text}` : "");
+        setTranscription(data.transcription);
+      } catch {
+        setErrorMsg("No se pudo transcribir el audio. Intenta escribir tu mensaje.");
+        setPhase("recorded");
+        return;
+      }
+    }
+
     setPhase("analyzing");
-    await new Promise(r => setTimeout(r, 2000));
-    setResult(MOCK_RESULT);
-    setPhase("done");
+    try {
+      const res = await fetch("/api/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: finalText }),
+      });
+      if (!res.ok) throw new Error("Error en análisis");
+      const analysis: AnalysisResult = await res.json();
+      setResult(analysis);
+
+      // Save entry anonymously
+      await fetch("/api/entries", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionToken: getSessionToken(),
+          mode: hasAudio ? (hasText ? "BOTH" : "VOICE") : "TEXT",
+          transcription: transcription || null,
+          textContent: text || null,
+          ...analysis,
+        }),
+      });
+
+      setPhase("done");
+    } catch {
+      setErrorMsg("No se pudo completar el análisis. Intenta de nuevo.");
+      setPhase(audioBlobRef.current ? "recorded" : "idle");
+    }
   };
 
-  const handleReset = () => { setPhase("idle"); setSeconds(0); setText(""); setResult(null); };
+  const handleReset = () => {
+    setPhase("idle");
+    setSeconds(0);
+    setText("");
+    setTranscription("");
+    setResult(null);
+    setErrorMsg("");
+    audioBlobRef.current = null;
+  };
+
+  const statusText: Partial<Record<Phase, { title: string; subtitle: string }>> = {
+    idle:        { title: "¿Cómo te sientes hoy?", subtitle: "Presiona el micrófono y habla libremente. No hay respuestas incorrectas." },
+    recording:   { title: "Escuchándote...", subtitle: "Habla con calma. Presiona para detener cuando termines." },
+    recorded:    { title: "Grabación lista", subtitle: transcription ? `"${transcription.slice(0, 80)}${transcription.length > 80 ? "..." : ""}"` : "Tu audio está listo. Presiona Analizar cuando quieras." },
+    transcribing:{ title: "Transcribiendo...", subtitle: "Convirtiendo tu voz a texto con Whisper AI..." },
+    analyzing:   { title: "Analizando...", subtitle: "Claude está evaluando tu bienestar emocional..." },
+    error:       { title: "Algo salió mal", subtitle: errorMsg },
+  };
+
+  const current = statusText[phase];
 
   return (
     <div className="min-h-screen flex flex-col items-center px-4 py-8 pt-24">
@@ -76,25 +188,29 @@ export default function RecordPage() {
       </div>
 
       <div className="w-full max-w-2xl mt-8 flex flex-col items-center gap-8">
-        {phase === "done" && (result?.riskLevel === "HIGH" || result?.riskLevel === "CRITICAL") && <CrisisBanner />}
+        {/* Crisis banner for high risk */}
+        {phase === "done" && result && (result.riskLevel === "HIGH" || result.riskLevel === "CRITICAL") && (
+          <CrisisBanner />
+        )}
 
         {phase !== "done" && (
           <>
-            <div className="text-center animate-fade-in">
-              <h1 className="text-3xl font-bold text-white mb-2">
-                {phase === "idle" && "¿Cómo te sientes hoy?"}
-                {phase === "recording" && "Escuchándote..."}
-                {phase === "recorded" && "Grabación lista"}
-                {phase === "transcribing" && "Transcribiendo..."}
-                {phase === "analyzing" && "Analizando..."}
-              </h1>
-              <p className="text-slate-400 text-sm">
-                {phase === "idle" && "Presiona el micrófono y habla libremente. No hay respuestas incorrectas."}
-                {phase === "recording" && "Habla con calma. Presiona para detener cuando termines."}
-                {phase === "recorded" && "Tu audio está listo. Presiona Analizar cuando quieras."}
-                {(phase === "transcribing" || phase === "analyzing") && "La IA está procesando tu registro..."}
-              </p>
-            </div>
+            {current && (
+              <div className="text-center animate-fade-in">
+                <h1 className="text-3xl font-bold text-white mb-2">{current.title}</h1>
+                <p className={`text-sm max-w-md ${phase === "error" ? "text-red-400" : "text-slate-400"}`}>
+                  {current.subtitle}
+                </p>
+              </div>
+            )}
+
+            {/* Error message */}
+            {errorMsg && phase !== "error" && (
+              <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm w-full">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                {errorMsg}
+              </div>
+            )}
 
             <div className="flex flex-col items-center gap-4">
               <RecordButton
@@ -114,7 +230,7 @@ export default function RecordPage() {
                       <span key={i} className="w-1.5 h-1.5 rounded-full bg-[#6C63FF] animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />
                     ))}
                   </div>
-                  {phase === "transcribing" ? "Transcribiendo audio..." : "Analizando sentimientos..."}
+                  {phase === "transcribing" ? "Transcribiendo con Whisper AI..." : "Analizando con Claude AI..."}
                 </div>
               )}
             </div>
@@ -131,7 +247,7 @@ export default function RecordPage() {
               />
             </div>
 
-            {(phase === "recorded" || (phase === "idle" && text.trim())) && (
+            {(phase === "recorded" || (phase === "idle" && text.trim().length > 5) || (phase === "error" && text.trim().length > 5)) && (
               <button
                 onClick={handleAnalyze}
                 className="flex items-center gap-2 px-8 py-4 rounded-full bg-gradient-to-r from-[#6C63FF] to-[#FF6B9D] text-white font-semibold hover:opacity-90 transition-opacity cursor-pointer shadow-[0_0_30px_rgba(108,99,255,0.4)] animate-fade-in"
@@ -148,6 +264,12 @@ export default function RecordPage() {
               <h1 className="text-2xl font-bold text-white mb-1">Tu análisis está listo</h1>
               <p className="text-sm text-slate-400">Aquí está la reflexión de hoy</p>
             </div>
+            {transcription && (
+              <div className="w-full glass-card rounded-2xl p-4">
+                <p className="text-xs text-slate-500 mb-1">Transcripción</p>
+                <p className="text-sm text-slate-300 leading-relaxed italic">"{transcription}"</p>
+              </div>
+            )}
             <SentimentCard {...result} />
             <div className="flex gap-3 flex-wrap justify-center">
               <button
