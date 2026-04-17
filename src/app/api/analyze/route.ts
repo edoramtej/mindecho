@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
   try {
     const { text } = await req.json();
 
-    if (!text || text.trim().length < 5) {
+    if (!text || text.trim().length < 1) {
       return NextResponse.json({ error: "Texto insuficiente para analizar" }, { status: 400 });
     }
 

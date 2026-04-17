@@ -89,15 +89,16 @@ export default function RecordPage() {
 
   const handleAnalyze = async () => {
     setErrorMsg("");
-    const hasAudio = audioBlobRef.current && seconds > 0;
-    const hasText = text.trim().length > 5;
+    const hasAudio = !!(audioBlobRef.current && audioBlobRef.current.size > 0 && seconds > 0);
+    const hasText = text.trim().length > 0;
 
     if (!hasAudio && !hasText) {
       setErrorMsg("Graba audio o escribe algo antes de analizar.");
       return;
     }
 
-    let finalText = text;
+    let finalText = text.trim();
+    let savedTranscription = "";
 
     if (hasAudio) {
       setPhase("transcribing");
@@ -107,13 +108,25 @@ export default function RecordPage() {
         const res = await fetch("/api/transcribe", { method: "POST", body: formData });
         if (!res.ok) throw new Error("Error en transcripción");
         const data = await res.json();
-        finalText = data.transcription + (text ? `\n\n${text}` : "");
-        setTranscription(data.transcription);
+        savedTranscription = data.transcription;
+        finalText = savedTranscription + (text.trim() ? `\n\n${text.trim()}` : "");
+        setTranscription(savedTranscription);
       } catch {
-        setErrorMsg("No se pudo transcribir el audio. Intenta escribir tu mensaje.");
-        setPhase("recorded");
-        return;
+        if (!hasText) {
+          // No fallback — nothing to analyze
+          setErrorMsg("No se pudo transcribir el audio. Intenta escribir tu mensaje.");
+          setPhase("recorded");
+          return;
+        }
+        // Has text typed — fall through to text-only analysis
+        setErrorMsg("No se pudo transcribir el audio. Analizando tu texto escrito...");
       }
+    }
+
+    if (!finalText.trim()) {
+      setErrorMsg("No hay texto suficiente para analizar.");
+      setPhase(hasAudio ? "recorded" : "idle");
+      return;
     }
 
     setPhase("analyzing");
@@ -127,15 +140,14 @@ export default function RecordPage() {
       const analysis: AnalysisResult = await res.json();
       setResult(analysis);
 
-      // Save entry anonymously
       await fetch("/api/entries", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           sessionToken: getSessionToken(),
-          mode: hasAudio ? (hasText ? "BOTH" : "VOICE") : "TEXT",
-          transcription: transcription || null,
-          textContent: text || null,
+          mode: hasAudio && savedTranscription ? (hasText ? "BOTH" : "VOICE") : "TEXT",
+          transcription: savedTranscription || null,
+          textContent: text.trim() || null,
           ...analysis,
         }),
       });
@@ -237,7 +249,7 @@ export default function RecordPage() {
               />
             </div>
 
-            {(phase === "recorded" || (phase === "idle" && text.trim().length > 5) || (phase === "error" && text.trim().length > 5)) && (
+            {(phase === "recorded" || (phase === "idle" && text.trim().length > 0) || (phase === "error" && text.trim().length > 0)) && (
               <button
                 onClick={handleAnalyze}
                 className="flex items-center gap-2 px-8 py-4 rounded-full bg-gradient-to-r from-[#6C63FF] to-[#FF6B9D] text-white font-semibold hover:opacity-90 transition-opacity cursor-pointer shadow-[0_0_30px_rgba(108,99,255,0.4)] animate-fade-in"
