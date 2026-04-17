@@ -61,7 +61,11 @@ export default function DashboardPage() {
     setDeletingId(id);
     try {
       const res = await fetch(`/api/entries/${id}`, { method: "DELETE" });
-      if (res.ok) setEntries(prev => prev.filter(e => e.id !== id));
+      if (res.ok) {
+        const data = await fetch("/api/dashboard").then(r => r.json());
+        setEntries(data.entries ?? []);
+        setStats(data.stats ?? null);
+      }
     } finally {
       setDeletingId(null);
     }
