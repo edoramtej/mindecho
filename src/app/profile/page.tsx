@@ -87,23 +87,19 @@ export default function ProfilePage() {
       .then(r => r.json())
       .then(data => {
         const s = data.sociodemographic;
-        if (data) {
-          setForm(prev => ({ ...prev, displayName: data.displayName ?? "" }));
-        }
-        if (s) {
-          setForm(prev => ({ ...prev,
-            ageRange: s.ageRange ?? "",
-            genderIdentity: s.genderIdentity ?? "",
-            genderOther: s.genderOther ?? "",
-            country: s.country ?? "",
-            region: s.region ?? "",
-            educationLevel: s.educationLevel ?? "",
-            employmentStatus: s.employmentStatus ?? "",
-            maritalStatus: s.maritalStatus ?? "",
-            hasPriorDiagnosis: s.hasPriorDiagnosis === true ? "SI" : s.hasPriorDiagnosis === false ? "NO" : "",
-            consentResearch: s.consentResearch ?? false,
-          }));
-        }
+        setForm({
+          displayName: data.displayName ?? "",
+          ageRange: s?.ageRange ?? "",
+          genderIdentity: s?.genderIdentity ?? "",
+          genderOther: s?.genderOther ?? "",
+          country: s?.country ?? "",
+          region: s?.region ?? "",
+          educationLevel: s?.educationLevel ?? "",
+          employmentStatus: s?.employmentStatus ?? "",
+          maritalStatus: s?.maritalStatus ?? "",
+          hasPriorDiagnosis: s?.hasPriorDiagnosis === true ? "SI" : s?.hasPriorDiagnosis === false ? "NO" : "",
+          consentResearch: s?.consentResearch ?? false,
+        });
       })
       .finally(() => setLoading(false));
   }, []);
