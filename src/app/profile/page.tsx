@@ -87,6 +87,7 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState("");
 
   useEffect(() => {
     fetch("/api/profile")
@@ -118,6 +119,7 @@ export default function ProfilePage() {
   const handleSave = async () => {
     setSaving(true);
     setSaved(false);
+    setSaveError("");
     try {
       const payload = {
         ...form,
@@ -128,14 +130,22 @@ export default function ProfilePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
+      const data = await res.json();
       if (res.ok) {
-        const data = await res.json();
-        if (data.displayName !== undefined) {
-          setForm(prev => ({ ...prev, displayName: data.displayName ?? "" }));
-        }
+        setForm(prev => ({
+          ...prev,
+          displayName: data.displayName ?? prev.displayName,
+          emergencyContactName: data.emergencyContactName ?? prev.emergencyContactName,
+          emergencyContactPhone: data.emergencyContactPhone ?? prev.emergencyContactPhone,
+          emergencyContactPref: data.emergencyContactPref ?? prev.emergencyContactPref,
+        }));
         setSaved(true);
         setTimeout(() => setSaved(false), 3000);
+      } else {
+        setSaveError(data.error ?? "Error al guardar. Intenta de nuevo.");
       }
+    } catch {
+      setSaveError("Error de conexión. Intenta de nuevo.");
     } finally {
       setSaving(false);
     }
@@ -311,6 +321,12 @@ export default function ProfilePage() {
                 </span>
               </label>
             </Section>
+
+            {saveError && (
+              <div className="px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 text-sm">
+                {saveError}
+              </div>
+            )}
 
             <button onClick={handleSave} disabled={saving}
               className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl bg-gradient-to-r from-[#6C63FF] to-[#FF6B9D] text-white font-semibold text-base hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed">
