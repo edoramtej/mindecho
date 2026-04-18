@@ -47,6 +47,21 @@ const sentimentLabel: Record<string, string> = {
   NEGATIVE: "Negativo", VERY_NEGATIVE: "Muy negativo",
 };
 
+type Period = "week" | "month" | "quarter" | "year" | "custom";
+
+function getDateRange(period: Period, customFrom: string, customTo: string): { from: string; to: string } {
+  const now = new Date();
+  const to = now.toISOString().slice(0, 10);
+  if (period === "custom") return { from: customFrom, to: customTo };
+  const days = period === "week" ? 7 : period === "month" ? 30 : period === "quarter" ? 90 : 365;
+  const from = new Date(now.getTime() - days * 86_400_000).toISOString().slice(0, 10);
+  return { from, to };
+}
+
+const PERIOD_LABELS: Record<Period, string> = {
+  week: "Semana", month: "Mes", quarter: "Trimestre", year: "Año", custom: "Personalizado",
+};
+
 export default function AdminPage() {
   const { user } = useUser();
   const [viewMode, setViewMode] = useState<"personal" | "admin">("admin");
@@ -64,18 +79,40 @@ export default function AdminPage() {
   const [personalDisplayName, setPersonalDisplayName] = useState<string | null>(null);
   const [personalLoading, setPersonalLoading] = useState(false);
 
-  useEffect(() => {
-    fetch("/api/admin")
+  // Period selector
+  const [period, setPeriod] = useState<Period>("month");
+  const [customFrom, setCustomFrom] = useState(() => new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10));
+  const [customTo, setCustomTo] = useState(() => new Date().toISOString().slice(0, 10));
+
+  const fetchAdminData = (p: Period, cf: string, ct: string) => {
+    setLoading(true);
+    const { from, to } = getDateRange(p, cf, ct);
+    const url = `/api/admin?from=${from}&to=${to}`;
+    fetch(url)
       .then(async r => {
         if (r.status === 403) { setForbidden(true); return null; }
         return r.json();
       })
       .then(d => { if (d) setData(d); })
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    fetchAdminData(period, customFrom, customTo);
     fetch("/api/admin/profile-history")
       .then(r => r.ok ? r.json() : [])
       .then(d => { if (Array.isArray(d)) setProfileHistory(d); });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const handlePeriodChange = (p: Period) => {
+    setPeriod(p);
+    if (p !== "custom") fetchAdminData(p, customFrom, customTo);
+  };
+
+  const handleCustomApply = () => {
+    if (customFrom && customTo) fetchAdminData("custom", customFrom, customTo);
+  };
 
   const handleViewModeSwitch = (mode: "personal" | "admin") => {
     setViewMode(mode);
@@ -271,17 +308,46 @@ export default function AdminPage() {
           )}
 
           {/* Admin view */}
-          {viewMode === "admin" && <div className="flex gap-1 glass-card rounded-2xl p-1 mb-8 overflow-x-auto">
-            {tabs.map(t => (
-              <button key={t.key} onClick={() => setTab(t.key)}
-                className={`px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all duration-200 cursor-pointer ${tab === t.key ? "bg-[#6C63FF]/30 text-white" : "text-slate-400 hover:text-white"}`}>
-                {t.label}
-                {t.key === "alerts" && riskEntries.length > 0 && (
-                  <span className="ml-1.5 px-1.5 py-0.5 rounded-full text-xs bg-red-500/30 text-red-400">{riskEntries.length}</span>
+          {viewMode === "admin" && <>
+            <div className="flex gap-1 glass-card rounded-2xl p-1 mb-4 overflow-x-auto">
+              {tabs.map(t => (
+                <button key={t.key} onClick={() => setTab(t.key)}
+                  className={`px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all duration-200 cursor-pointer ${tab === t.key ? "bg-[#6C63FF]/30 text-white" : "text-slate-400 hover:text-white"}`}>
+                  {t.label}
+                  {t.key === "alerts" && riskEntries.length > 0 && (
+                    <span className="ml-1.5 px-1.5 py-0.5 rounded-full text-xs bg-red-500/30 text-red-400">{riskEntries.length}</span>
+                  )}
+                </button>
+              ))}
+            </div>
+
+            {/* Period selector — applies to all charts */}
+            {tab !== "crisis" && tab !== "history" && (
+              <div className="flex flex-wrap items-center gap-3 mb-6">
+                <div className="flex gap-1 glass-card rounded-xl p-1">
+                  {(["week", "month", "quarter", "year", "custom"] as Period[]).map(p => (
+                    <button key={p} onClick={() => handlePeriodChange(p)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all duration-200 cursor-pointer ${period === p ? "bg-[#6C63FF]/40 text-white" : "text-slate-400 hover:text-white"}`}>
+                      {PERIOD_LABELS[p]}
+                    </button>
+                  ))}
+                </div>
+                {period === "custom" && (
+                  <div className="flex items-center gap-2">
+                    <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)}
+                      className="px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-xs text-white focus:outline-none focus:border-[#6C63FF]/50 cursor-pointer" />
+                    <span className="text-slate-600 text-xs">→</span>
+                    <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)}
+                      className="px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-xs text-white focus:outline-none focus:border-[#6C63FF]/50 cursor-pointer" />
+                    <button onClick={handleCustomApply}
+                      className="px-4 py-1.5 rounded-xl bg-[#6C63FF]/30 border border-[#6C63FF]/40 text-xs text-white hover:bg-[#6C63FF]/50 transition-all cursor-pointer">
+                      Aplicar
+                    </button>
+                  </div>
                 )}
-              </button>
-            ))}
-          </div>}
+              </div>
+            )}
+          </>}
 
           {viewMode === "admin" && (loading ? (
             <div className="flex items-center justify-center h-64">
@@ -311,7 +377,11 @@ export default function AdminPage() {
                   </div>
                   {sentimentTrend.length > 0 ? (
                     <div className="glass-card rounded-2xl p-6">
-                      <h2 className="text-sm font-semibold text-slate-300 mb-4">Tendencia de sentimientos (últimos 14 días)</h2>
+                      <h2 className="text-sm font-semibold text-slate-300 mb-4">
+                        Tendencia de sentimientos — {period === "custom" ? `${customFrom} → ${customTo}` : `último ${PERIOD_LABELS[period].toLowerCase()}`}
+                        {data?.granularity === "week" && <span className="ml-2 text-slate-600 font-normal text-xs">(agrupado por semana)</span>}
+                        {data?.granularity === "month" && <span className="ml-2 text-slate-600 font-normal text-xs">(agrupado por mes)</span>}
+                      </h2>
                       <ResponsiveContainer width="100%" height={220}>
                         <LineChart data={sentimentTrend} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
                           <XAxis dataKey="day" tick={{ fill: "#475569", fontSize: 10 }} tickLine={false} axisLine={false} />
@@ -402,8 +472,11 @@ export default function AdminPage() {
               {/* Population */}
               {tab === "population" && (
                 <div className="space-y-6 animate-fade-in">
-                  <div className="p-4 rounded-2xl bg-[#6C63FF]/10 border border-[#6C63FF]/20 text-sm text-slate-300">
-                    Todos los datos son 100% anonimizados. No se muestra ningún identificador personal.
+                  <div className="p-4 rounded-2xl bg-[#6C63FF]/10 border border-[#6C63FF]/20 text-sm text-slate-300 flex items-center justify-between flex-wrap gap-2">
+                    <span>Todos los datos son 100% anonimizados. No se muestra ningún identificador personal.</span>
+                    <span className="text-xs text-[#6C63FF] font-medium">
+                      {period === "custom" ? `${customFrom} → ${customTo}` : `Último ${PERIOD_LABELS[period].toLowerCase()} · ${overview.totalEntries ?? 0} registros`}
+                    </span>
                   </div>
                   {[
                     { title: "Bienestar por identidad de género", data: wellbeingByGender },
@@ -411,7 +484,10 @@ export default function AdminPage() {
                     { title: "Bienestar por situación laboral", data: wellbeingByEmployment },
                   ].map(chart => (
                     <div key={chart.title} className="glass-card rounded-2xl p-6">
-                      <h2 className="text-xs font-semibold text-slate-400 mb-4 uppercase tracking-wide">{chart.title}</h2>
+                      <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wide">{chart.title}</h2>
+                        <span className="text-xs text-slate-600">{period === "custom" ? `${customFrom} → ${customTo}` : `Último ${PERIOD_LABELS[period].toLowerCase()}`}</span>
+                      </div>
                       {chart.data.length > 0 ? (
                         <ResponsiveContainer width="100%" height={180}>
                           <BarChart data={chart.data} margin={{ top: 0, right: 0, left: -25, bottom: 0 }}>
