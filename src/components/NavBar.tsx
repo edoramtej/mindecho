@@ -8,14 +8,16 @@ import { useUser, useClerk } from "@clerk/nextjs";
 export default function NavBar() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const { isSignedIn } = useUser();
+  const { isSignedIn, user } = useUser();
   const { signOut } = useClerk();
+  const isAdmin = (user?.publicMetadata as { role?: string })?.role === "admin";
 
   const navLinks = isSignedIn
     ? [
         { href: "/record", label: "Nuevo registro" },
         { href: "/dashboard", label: "Mi evolución" },
         { href: "/profile", label: "Mi perfil" },
+        ...(isAdmin ? [{ href: "/admin", label: "Administración" }] : []),
       ]
     : [
         { href: "/record", label: "Comenzar" },

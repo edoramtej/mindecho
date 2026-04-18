@@ -14,9 +14,10 @@ const isPublicRoute = createRouteMatcher([
 ]);
 
 const isAdminRoute = createRouteMatcher(["/admin(.*)", "/api/admin(.*)"]);
+const isAdminSetup = createRouteMatcher(["/api/admin/setup(.*)"]);
 
 export default clerkMiddleware(async (auth, req) => {
-  if (isAdminRoute(req)) {
+  if (isAdminRoute(req) && !isAdminSetup(req)) {
     // Just require authentication — role check happens in the API and page
     const { userId } = await auth();
     if (!userId) return NextResponse.redirect(new URL("/sign-in", req.url));

@@ -1,8 +1,9 @@
 "use client";
 import { useState, useEffect } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, Cell } from "recharts";
-import { Users, AlertTriangle, Heart, TrendingUp, Plus, X, Check, ToggleLeft, ToggleRight, Loader2, History } from "lucide-react";
+import { Users, AlertTriangle, Heart, TrendingUp, Plus, X, Check, ToggleLeft, ToggleRight, Loader2, History, UserCircle, Globe, Flame, Calendar, Mic } from "lucide-react";
 import NavBar from "@/components/NavBar";
+import { useUser } from "@clerk/nextjs";
 
 const TOOLTIP_STYLE = { background: "#1E1E3A", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "12px", fontSize: "11px" };
 
@@ -33,7 +34,22 @@ const initialResources: Resource[] = [
   { id: 2, name: "Chat de Crisis", country: "Global", type: "GENERAL", channel: "CHAT_ONLINE", contact: "crisischat.org", schedule: "24/7", isFree: true, isActive: true },
 ];
 
+type PersonalEntry = { id: string; createdAt: string; sentiment: string | null; wellbeingScore: number | null; topics: string[] };
+type PersonalStats = { avgWellbeing: number; totalEntries: number; sentimentCounts: Record<string, number>; topTopics: string[]; streak: number };
+
+const sentimentBadge: Record<string, string> = {
+  VERY_POSITIVE: "bg-emerald-400/20 text-emerald-400", POSITIVE: "bg-green-400/20 text-green-400",
+  NEUTRAL: "bg-slate-400/20 text-slate-400", NEGATIVE: "bg-amber-400/20 text-amber-400",
+  VERY_NEGATIVE: "bg-red-400/20 text-red-400",
+};
+const sentimentLabel: Record<string, string> = {
+  VERY_POSITIVE: "Muy positivo", POSITIVE: "Positivo", NEUTRAL: "Neutro",
+  NEGATIVE: "Negativo", VERY_NEGATIVE: "Muy negativo",
+};
+
 export default function AdminPage() {
+  const { user } = useUser();
+  const [viewMode, setViewMode] = useState<"personal" | "admin">("admin");
   const [tab, setTab] = useState<"overview" | "population" | "crisis" | "alerts" | "history">("overview");
   const [profileHistory, setProfileHistory] = useState<{ id: string; field: string; oldValue: string | null; newValue: string | null; changedAt: string; userId: string }[]>([]);
   const [data, setData] = useState<Record<string, unknown> | null>(null);
@@ -42,6 +58,10 @@ export default function AdminPage() {
   const [resources, setResources] = useState<Resource[]>(initialResources);
   const [showModal, setShowModal] = useState(false);
   const [newResource, setNewResource] = useState({ name: "", country: "", type: "GENERAL", channel: "PHONE", contact: "", schedule: "24/7", isFree: true });
+  const [personalEntries, setPersonalEntries] = useState<PersonalEntry[]>([]);
+  const [personalStats, setPersonalStats] = useState<PersonalStats | null>(null);
+  const [personalDisplayName, setPersonalDisplayName] = useState<string | null>(null);
+  const [personalLoading, setPersonalLoading] = useState(false);
 
   useEffect(() => {
     fetch("/api/admin")
@@ -55,6 +75,21 @@ export default function AdminPage() {
       .then(r => r.ok ? r.json() : [])
       .then(d => { if (Array.isArray(d)) setProfileHistory(d); });
   }, []);
+
+  const handleViewModeSwitch = (mode: "personal" | "admin") => {
+    setViewMode(mode);
+    if (mode === "personal" && personalStats === null && !personalLoading) {
+      setPersonalLoading(true);
+      fetch("/api/dashboard")
+        .then(r => r.json())
+        .then(d => {
+          setPersonalEntries(d.entries ?? []);
+          setPersonalStats(d.stats ?? null);
+          setPersonalDisplayName(d.displayName ?? null);
+        })
+        .finally(() => setPersonalLoading(false));
+    }
+  };
 
   const handleAddResource = () => {
     if (!newResource.name || !newResource.contact) return;
@@ -110,15 +145,122 @@ export default function AdminPage() {
         <div className="max-w-6xl mx-auto">
           <div className="flex items-start justify-between mb-6">
             <div>
-              <h1 className="text-3xl font-bold text-white mb-1">Panel de Administración</h1>
-              <p className="text-slate-400 text-sm">Datos anonimizados de toda la población</p>
+              <h1 className="text-3xl font-bold text-white mb-1">
+                {viewMode === "personal" ? `Mi evolución` : "Panel de Administración"}
+              </h1>
+              <p className="text-slate-400 text-sm">
+                {viewMode === "personal" ? "Tu progreso emocional personal" : "Datos anonimizados de toda la población"}
+              </p>
             </div>
-            <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs bg-emerald-500/20 text-emerald-400 border border-emerald-500/20">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> En vivo
-            </span>
+            <div className="flex items-center gap-3">
+              {/* View mode toggle */}
+              <div className="flex items-center glass-card rounded-xl p-1">
+                <button
+                  onClick={() => handleViewModeSwitch("personal")}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 cursor-pointer ${viewMode === "personal" ? "bg-[#6C63FF]/30 text-white" : "text-slate-400 hover:text-white"}`}
+                >
+                  <UserCircle className="w-4 h-4" /> Mi evolución
+                </button>
+                <button
+                  onClick={() => handleViewModeSwitch("admin")}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 cursor-pointer ${viewMode === "admin" ? "bg-[#6C63FF]/30 text-white" : "text-slate-400 hover:text-white"}`}
+                >
+                  <Globe className="w-4 h-4" /> Administración
+                </button>
+              </div>
+              {viewMode === "admin" && (
+                <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs bg-emerald-500/20 text-emerald-400 border border-emerald-500/20">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> En vivo
+                </span>
+              )}
+            </div>
           </div>
 
-          <div className="flex gap-1 glass-card rounded-2xl p-1 mb-8 overflow-x-auto">
+          {/* Personal view */}
+          {viewMode === "personal" && (
+            <div className="animate-fade-in">
+              {personalLoading ? (
+                <div className="flex items-center justify-center h-64">
+                  <Loader2 className="w-8 h-8 text-[#6C63FF] animate-spin" />
+                </div>
+              ) : personalStats ? (
+                <div className="space-y-6">
+                  {/* Personal KPIs */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {[
+                      { label: "Bienestar promedio", value: personalStats.avgWellbeing.toFixed(1), sub: "/10", icon: <TrendingUp className="w-4 h-4" />, color: "text-emerald-400" },
+                      { label: "Registros totales", value: String(personalStats.totalEntries), sub: "en total", icon: <Calendar className="w-4 h-4" />, color: "text-[#6C63FF]" },
+                      { label: "Racha actual", value: String(personalStats.streak), sub: personalStats.streak === 1 ? "día" : "días", icon: <Flame className="w-4 h-4" />, color: "text-orange-400" },
+                      { label: "Tema frecuente", value: personalStats.topTopics[0] ?? "—", sub: "más mencionado", icon: <Mic className="w-4 h-4" />, color: "text-[#FF6B9D]" },
+                    ].map((kpi, i) => (
+                      <div key={i} className="glass-card rounded-2xl p-4">
+                        <div className={`${kpi.color} mb-2`}>{kpi.icon}</div>
+                        <p className={`text-2xl font-bold ${kpi.color}`}>{kpi.value}<span className="text-sm text-slate-500 font-normal ml-1">{kpi.sub}</span></p>
+                        <p className="text-xs text-slate-500 mt-1">{kpi.label}</p>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Wellbeing trend */}
+                  <div className="glass-card rounded-2xl p-6">
+                    <h2 className="text-sm font-semibold text-slate-300 mb-4">Puntaje de bienestar — últimos registros</h2>
+                    {personalEntries.filter(e => e.wellbeingScore !== null).length > 1 ? (
+                      <ResponsiveContainer width="100%" height={200}>
+                        <LineChart
+                          data={personalEntries.filter(e => e.wellbeingScore !== null).slice(0, 30).reverse().map((e, i) => ({ day: `${i + 1}`, score: e.wellbeingScore }))}
+                          margin={{ top: 5, right: 10, left: -20, bottom: 0 }}
+                        >
+                          <XAxis dataKey="day" tick={{ fill: "#475569", fontSize: 10 }} tickLine={false} axisLine={false} />
+                          <YAxis domain={[0, 10]} tick={{ fill: "#475569", fontSize: 10 }} tickLine={false} axisLine={false} />
+                          <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={{ color: "#94A3B8" }} itemStyle={{ color: "#6C63FF" }} />
+                          <Line type="monotone" dataKey="score" stroke="#6C63FF" strokeWidth={2.5} dot={false} activeDot={{ r: 4, fill: "#6C63FF" }} name="Bienestar" />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="flex items-center justify-center h-48 text-slate-600 text-sm">Necesitas más registros para ver la tendencia</div>
+                    )}
+                  </div>
+                  {/* Recent entries */}
+                  <div className="glass-card rounded-2xl p-6">
+                    <h2 className="text-sm font-semibold text-slate-300 mb-4">Últimos registros</h2>
+                    <div className="space-y-3">
+                      {personalEntries.slice(0, 5).map(entry => (
+                        <div key={entry.id} className="flex items-center gap-3 p-3 rounded-xl bg-white/5">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              {entry.sentiment && (
+                                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${sentimentBadge[entry.sentiment]}`}>
+                                  {sentimentLabel[entry.sentiment]}
+                                </span>
+                              )}
+                              <span className="text-xs text-slate-600">
+                                {new Date(entry.createdAt).toLocaleDateString("es", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                              </span>
+                            </div>
+                            <div className="flex gap-1.5 flex-wrap">
+                              {entry.topics.map(t => (
+                                <span key={t} className="text-xs text-slate-500 bg-white/5 px-2 py-0.5 rounded-full">{t}</span>
+                              ))}
+                            </div>
+                          </div>
+                          {entry.wellbeingScore !== null && (
+                            <div className="text-right flex-shrink-0">
+                              <span className="text-lg font-bold text-white">{entry.wellbeingScore.toFixed(1)}</span>
+                              <p className="text-xs text-slate-600">/10</p>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-center h-64 text-slate-500 text-sm">No hay registros personales aún</div>
+              )}
+            </div>
+          )}
+
+          {/* Admin view */}
+          {viewMode === "admin" && <div className="flex gap-1 glass-card rounded-2xl p-1 mb-8 overflow-x-auto">
             {tabs.map(t => (
               <button key={t.key} onClick={() => setTab(t.key)}
                 className={`px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all duration-200 cursor-pointer ${tab === t.key ? "bg-[#6C63FF]/30 text-white" : "text-slate-400 hover:text-white"}`}>
@@ -128,9 +270,9 @@ export default function AdminPage() {
                 )}
               </button>
             ))}
-          </div>
+          </div>}
 
-          {loading ? (
+          {viewMode === "admin" && (loading ? (
             <div className="flex items-center justify-center h-64">
               <div className="flex flex-col items-center gap-3">
                 <Loader2 className="w-8 h-8 text-[#6C63FF] animate-spin" />
@@ -438,7 +580,7 @@ export default function AdminPage() {
                 </div>
               )}
             </>
-          )}
+          ))}
         </div>
       </main>
     </>
