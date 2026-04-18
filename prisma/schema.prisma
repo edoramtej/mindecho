@@ -111,6 +111,7 @@ model User {
   id               String            @id @default(cuid())
   clerkId          String            @unique
   email            String?
+  displayName      String?
   role             UserRole          @default(USER)
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt

@@ -35,11 +35,11 @@ export async function PUT(req: NextRequest) {
 
     const body = await req.json();
 
-    // Ensure user exists
+    // Ensure user exists and save displayName
     const user = await prisma.user.upsert({
       where: { clerkId: userId },
-      update: {},
-      create: { clerkId: userId },
+      update: { displayName: body.displayName?.trim() || null },
+      create: { clerkId: userId, displayName: body.displayName?.trim() || null },
       include: { sociodemographic: true },
     });
 

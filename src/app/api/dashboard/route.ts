@@ -50,6 +50,7 @@ export async function GET() {
 
     return NextResponse.json({
       entries,
+      displayName: user.displayName ?? null,
       stats: { avgWellbeing, totalEntries: entries.length, sentimentCounts, topTopics, streak },
     });
   } catch (error) {

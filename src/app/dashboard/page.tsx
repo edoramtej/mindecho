@@ -46,13 +46,18 @@ export default function DashboardPage() {
   const { user } = useUser();
   const [entries, setEntries] = useState<Entry[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
+  const [displayName, setDisplayName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/dashboard")
       .then(r => r.json())
-      .then(data => { setEntries(data.entries ?? []); setStats(data.stats ?? null); })
+      .then(data => {
+        setEntries(data.entries ?? []);
+        setStats(data.stats ?? null);
+        setDisplayName(data.displayName ?? null);
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -65,6 +70,7 @@ export default function DashboardPage() {
         const data = await fetch("/api/dashboard").then(r => r.json());
         setEntries(data.entries ?? []);
         setStats(data.stats ?? null);
+        setDisplayName(data.displayName ?? null);
       }
     } finally {
       setDeletingId(null);
@@ -101,7 +107,7 @@ export default function DashboardPage() {
     );
   }
 
-  const firstName = user?.firstName ?? "de nuevo";
+  const firstName = displayName ?? user?.firstName ?? "de nuevo";
 
   if (!stats || entries.length === 0) {
     return (

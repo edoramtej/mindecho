@@ -36,6 +36,7 @@ const maritalOptions = [
 ];
 
 type FormData = {
+  displayName: string;
   ageRange: string; genderIdentity: string; genderOther: string;
   country: string; region: string; educationLevel: string;
   employmentStatus: string; maritalStatus: string;
@@ -71,6 +72,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 export default function ProfilePage() {
   const { user } = useUser();
   const [form, setForm] = useState<FormData>({
+    displayName: "",
     ageRange: "", genderIdentity: "", genderOther: "",
     country: "", region: "", educationLevel: "",
     employmentStatus: "", maritalStatus: "",
@@ -85,8 +87,11 @@ export default function ProfilePage() {
       .then(r => r.json())
       .then(data => {
         const s = data.sociodemographic;
+        if (data) {
+          setForm(prev => ({ ...prev, displayName: data.displayName ?? "" }));
+        }
         if (s) {
-          setForm({
+          setForm(prev => ({ ...prev,
             ageRange: s.ageRange ?? "",
             genderIdentity: s.genderIdentity ?? "",
             genderOther: s.genderOther ?? "",
@@ -97,7 +102,7 @@ export default function ProfilePage() {
             maritalStatus: s.maritalStatus ?? "",
             hasPriorDiagnosis: s.hasPriorDiagnosis === true ? "SI" : s.hasPriorDiagnosis === false ? "NO" : "",
             consentResearch: s.consentResearch ?? false,
-          });
+          }));
         }
       })
       .finally(() => setLoading(false));
@@ -159,6 +164,18 @@ export default function ProfilePage() {
           </div>
 
           <div className="space-y-5">
+            <Section title="Nombre de usuario">
+              <p className="text-xs text-slate-500 mb-3">Así te llamaremos en tu panel de evolución. Si lo dejas vacío usaremos tu nombre de Clerk.</p>
+              <input
+                type="text"
+                placeholder="Ej: Eduardo, Edu, Lalo..."
+                value={form.displayName}
+                onChange={e => set("displayName", e.target.value)}
+                maxLength={40}
+                className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-[#6C63FF]/50"
+              />
+            </Section>
+
             <Section title="Información personal">
               <div className="space-y-4">
                 <div>
