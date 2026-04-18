@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useUser } from "@clerk/nextjs";
-import { Save, Loader2, CheckCircle, User } from "lucide-react";
+import { Save, Loader2, CheckCircle, User, Phone, MessageCircle } from "lucide-react";
 import NavBar from "@/components/NavBar";
 
 const ageRanges = [
@@ -41,6 +41,9 @@ type FormData = {
   country: string; region: string; educationLevel: string;
   employmentStatus: string; maritalStatus: string;
   hasPriorDiagnosis: string; consentResearch: boolean;
+  emergencyContactName: string;
+  emergencyContactPhone: string;
+  emergencyContactPref: "CALL" | "WHATSAPP" | "";
 };
 
 function SelectGrid({ options, value, onChange }: { options: { value: string; label: string }[]; value: string; onChange: (v: string) => void }) {
@@ -77,6 +80,9 @@ export default function ProfilePage() {
     country: "", region: "", educationLevel: "",
     employmentStatus: "", maritalStatus: "",
     hasPriorDiagnosis: "", consentResearch: false,
+    emergencyContactName: "",
+    emergencyContactPhone: "",
+    emergencyContactPref: "",
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -99,6 +105,9 @@ export default function ProfilePage() {
           maritalStatus: s?.maritalStatus ?? "",
           hasPriorDiagnosis: s?.hasPriorDiagnosis === true ? "SI" : s?.hasPriorDiagnosis === false ? "NO" : "",
           consentResearch: s?.consentResearch ?? false,
+          emergencyContactName: data.emergencyContactName ?? "",
+          emergencyContactPhone: data.emergencyContactPhone ?? "",
+          emergencyContactPref: data.emergencyContactPref ?? "",
         });
       })
       .finally(() => setLoading(false));
@@ -234,6 +243,56 @@ export default function ProfilePage() {
                     value={form.hasPriorDiagnosis}
                     onChange={v => set("hasPriorDiagnosis", v)}
                   />
+                </div>
+              </div>
+            </Section>
+
+            <Section title="Contacto de emergencia">
+              <p className="text-xs text-slate-500 mb-4 leading-relaxed">
+                Opcional. Si algún día MindEcho detecta que estás en crisis, te mostrará un acceso directo para contactar a esta persona desde tu dispositivo. Solo tú puedes ver este dato.
+              </p>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs text-slate-400 mb-2 uppercase tracking-wide">Nombre del contacto</label>
+                  <input
+                    type="text"
+                    placeholder="Ej: Mamá, Juan, Dr. Pérez..."
+                    value={form.emergencyContactName}
+                    onChange={e => set("emergencyContactName", e.target.value)}
+                    maxLength={60}
+                    className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-[#6C63FF]/50"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-400 mb-2 uppercase tracking-wide">Número de teléfono</label>
+                  <input
+                    type="tel"
+                    placeholder="Ej: +56 9 1234 5678"
+                    value={form.emergencyContactPhone}
+                    onChange={e => set("emergencyContactPhone", e.target.value)}
+                    maxLength={20}
+                    className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-[#6C63FF]/50"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-400 mb-2 uppercase tracking-wide">¿Cómo prefieres contactarle?</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {([
+                      { value: "CALL", label: "Llamada telefónica", icon: Phone },
+                      { value: "WHATSAPP", label: "WhatsApp", icon: MessageCircle },
+                    ] as { value: "CALL" | "WHATSAPP"; label: string; icon: React.ElementType }[]).map(opt => (
+                      <button key={opt.value} type="button"
+                        onClick={() => set("emergencyContactPref", form.emergencyContactPref === opt.value ? "" : opt.value)}
+                        className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm text-left transition-all duration-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#6C63FF]/50 ${
+                          form.emergencyContactPref === opt.value
+                            ? "bg-[#6C63FF]/30 border border-[#6C63FF] text-white font-medium"
+                            : "bg-white/5 border border-white/10 text-slate-400 hover:border-white/20 hover:text-white"
+                        }`}>
+                        <opt.icon className="w-4 h-4 flex-shrink-0" />
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             </Section>

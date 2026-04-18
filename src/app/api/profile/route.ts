@@ -35,11 +35,22 @@ export async function PUT(req: NextRequest) {
 
     const body = await req.json();
 
-    // Ensure user exists and save displayName
+    // Ensure user exists and save displayName + emergency contact
     const user = await prisma.user.upsert({
       where: { clerkId: userId },
-      update: { displayName: body.displayName?.trim() || null },
-      create: { clerkId: userId, displayName: body.displayName?.trim() || null },
+      update: {
+        displayName: body.displayName?.trim() || null,
+        emergencyContactName: body.emergencyContactName?.trim() || null,
+        emergencyContactPhone: body.emergencyContactPhone?.trim() || null,
+        emergencyContactPref: body.emergencyContactPref || null,
+      },
+      create: {
+        clerkId: userId,
+        displayName: body.displayName?.trim() || null,
+        emergencyContactName: body.emergencyContactName?.trim() || null,
+        emergencyContactPhone: body.emergencyContactPhone?.trim() || null,
+        emergencyContactPref: body.emergencyContactPref || null,
+      },
       include: { sociodemographic: true },
     });
 
@@ -101,7 +112,14 @@ export async function PUT(req: NextRequest) {
       await prisma.profileHistory.createMany({ data: historyEntries });
     }
 
-    return NextResponse.json({ sociodemographic: socio, displayName: user.displayName, changes: historyEntries.length });
+    return NextResponse.json({
+      sociodemographic: socio,
+      displayName: user.displayName,
+      emergencyContactName: user.emergencyContactName,
+      emergencyContactPhone: user.emergencyContactPhone,
+      emergencyContactPref: user.emergencyContactPref,
+      changes: historyEntries.length,
+    });
   } catch (error) {
     console.error("Profile PUT error:", error);
     return NextResponse.json({ error: "Error al guardar perfil" }, { status: 500 });

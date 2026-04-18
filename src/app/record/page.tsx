@@ -102,6 +102,12 @@ function setAnonSocioId(id: string) {
   localStorage.setItem("mindecho_socio_id", id);
 }
 
+interface EmergencyContact {
+  name: string;
+  phone: string;
+  pref: "CALL" | "WHATSAPP";
+}
+
 export default function RecordPage() {
   const { isSignedIn, isLoaded } = useUser();
   const [phase, setPhase] = useState<Phase>("idle");
@@ -110,6 +116,7 @@ export default function RecordPage() {
   const [transcription, setTranscription] = useState("");
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
+  const [emergencyContact, setEmergencyContact] = useState<EmergencyContact | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const audioBlobRef = useRef<Blob | null>(null);
@@ -132,6 +139,23 @@ export default function RecordPage() {
     if (!isSignedIn && !getAnonSocioId()) {
       setShowSocioModal(true);
     }
+  }, [isLoaded, isSignedIn]);
+
+  // Fetch emergency contact for authenticated users
+  useEffect(() => {
+    if (!isLoaded || !isSignedIn) return;
+    fetch("/api/profile")
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data?.emergencyContactName && data?.emergencyContactPhone && data?.emergencyContactPref) {
+          setEmergencyContact({
+            name: data.emergencyContactName,
+            phone: data.emergencyContactPhone,
+            pref: data.emergencyContactPref,
+          });
+        }
+      })
+      .catch(() => null);
   }, [isLoaded, isSignedIn]);
 
   useEffect(() => {
@@ -457,7 +481,7 @@ export default function RecordPage() {
       <div className="w-full max-w-2xl mt-8 flex flex-col items-center gap-8">
         {/* Crisis banner for high risk */}
         {phase === "done" && result && (result.riskLevel === "HIGH" || result.riskLevel === "CRITICAL") && (
-          <CrisisBanner />
+          <CrisisBanner personalContact={emergencyContact} />
         )}
 
         {phase !== "done" && (
