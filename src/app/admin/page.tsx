@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, Cell } from "recharts";
-import { Users, AlertTriangle, Heart, TrendingUp, Plus, X, Check, ToggleLeft, ToggleRight, Loader2, History, UserCircle, Globe, Flame, Calendar, Mic } from "lucide-react";
+import { Users, AlertTriangle, Heart, TrendingUp, Plus, X, Check, ToggleLeft, ToggleRight, Loader2, History, UserCircle, Globe, Flame, Calendar, Mic, Trash2 } from "lucide-react";
 import NavBar from "@/components/NavBar";
 import { useUser } from "@clerk/nextjs";
 
@@ -108,6 +108,7 @@ export default function AdminPage() {
     closeModal();
   };
   const toggleResource = (id: number) => setResources(prev => prev.map(r => r.id === id ? { ...r, isActive: !r.isActive } : r));
+  const deleteResource = (id: number) => { if (confirm("¿Eliminar este recurso? Esta acción no se puede deshacer.")) setResources(prev => prev.filter(r => r.id !== id)); };
 
   const tabs = [
     { key: "overview", label: "Visión general" },
@@ -466,10 +467,16 @@ export default function AdminPage() {
                               </button>
                             </td>
                             <td className="px-4 py-3">
-                              <button onClick={() => openEdit(r)} aria-label="Editar recurso"
-                                className="opacity-0 group-hover:opacity-100 px-3 py-1 rounded-lg text-xs text-slate-400 hover:text-white hover:bg-white/10 transition-all cursor-pointer">
-                                Editar
-                              </button>
+                              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                                <button onClick={() => openEdit(r)} aria-label="Editar recurso"
+                                  className="px-3 py-1 rounded-lg text-xs text-slate-400 hover:text-white hover:bg-white/10 transition-all cursor-pointer">
+                                  Editar
+                                </button>
+                                <button onClick={() => deleteResource(r.id)} aria-label="Eliminar recurso"
+                                  className="p-1.5 rounded-lg text-slate-600 hover:text-red-400 hover:bg-red-400/10 transition-all cursor-pointer">
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         ))}
