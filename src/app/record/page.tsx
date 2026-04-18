@@ -86,10 +86,10 @@ function SelectGrid({ options, value, onChange, required }: { options: { value: 
 
 function getSessionToken(): string {
   const key = "mindecho_session";
-  let token = sessionStorage.getItem(key);
+  let token = localStorage.getItem(key);
   if (!token) {
     token = crypto.randomUUID();
-    sessionStorage.setItem(key, token);
+    localStorage.setItem(key, token);
   }
   return token;
 }

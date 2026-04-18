@@ -81,6 +81,7 @@ export default function AdminPage() {
   const wellbeingByEmployment = ((data?.wellbeingByEmployment as { name: string; score: number; count: number }[]) ?? [])
     .map(d => ({ ...d, name: employmentLabels[d.name] ?? d.name }));
   const riskEntries = (data?.riskEntries as { risk: string; keywords: string[]; country: string; time: string }[]) ?? [];
+  const recentAnonymous = (data?.recentAnonymous as { id: string; createdAt: string; sentiment: string | null; wellbeingScore: number | null; topics: string[]; sociodemographicId: string | null }[]) ?? [];
 
   if (forbidden) {
     return (
@@ -182,6 +183,66 @@ export default function AdminPage() {
                       Se necesitan más registros para mostrar tendencias
                     </div>
                   )}
+
+                  {/* Recent anonymous entries */}
+                  <div className="glass-card rounded-2xl p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <h2 className="text-sm font-semibold text-slate-300">Registros anónimos recientes</h2>
+                      <span className="text-xs text-slate-500">{overview.anonymousEntries ?? 0} en total</span>
+                    </div>
+                    {recentAnonymous.length > 0 ? (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="text-xs text-slate-500 border-b border-white/5">
+                              <th className="text-left pb-2 font-medium">Fecha y hora</th>
+                              <th className="text-left pb-2 font-medium">Sentimiento</th>
+                              <th className="text-left pb-2 font-medium">Bienestar</th>
+                              <th className="text-left pb-2 font-medium">Temas</th>
+                              <th className="text-left pb-2 font-medium">Demograf.</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-white/5">
+                            {recentAnonymous.map(e => (
+                              <tr key={e.id} className="text-xs">
+                                <td className="py-2.5 text-slate-400 pr-4 whitespace-nowrap">
+                                  {new Date(e.createdAt).toLocaleDateString("es", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                                </td>
+                                <td className="py-2.5 pr-4">
+                                  {e.sentiment ? (
+                                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                                      e.sentiment === "VERY_POSITIVE" ? "bg-emerald-400/20 text-emerald-400" :
+                                      e.sentiment === "POSITIVE" ? "bg-green-400/20 text-green-400" :
+                                      e.sentiment === "NEUTRAL" ? "bg-slate-400/20 text-slate-400" :
+                                      e.sentiment === "NEGATIVE" ? "bg-amber-400/20 text-amber-400" :
+                                      "bg-red-400/20 text-red-400"
+                                    }`}>
+                                      {{ VERY_POSITIVE: "Muy positivo", POSITIVE: "Positivo", NEUTRAL: "Neutro", NEGATIVE: "Negativo", VERY_NEGATIVE: "Muy negativo" }[e.sentiment] ?? e.sentiment}
+                                    </span>
+                                  ) : <span className="text-slate-600">—</span>}
+                                </td>
+                                <td className="py-2.5 pr-4">
+                                  {e.wellbeingScore !== null
+                                    ? <span className="font-semibold text-white">{e.wellbeingScore.toFixed(1)}<span className="text-slate-600 font-normal">/10</span></span>
+                                    : <span className="text-slate-600">—</span>}
+                                </td>
+                                <td className="py-2.5 pr-4 text-slate-400 max-w-[160px] truncate">
+                                  {e.topics.length > 0 ? e.topics.slice(0, 3).join(", ") : <span className="text-slate-600">—</span>}
+                                </td>
+                                <td className="py-2.5">
+                                  {e.sociodemographicId
+                                    ? <span className="text-emerald-400 font-medium">✓ Vinculados</span>
+                                    : <span className="text-slate-600">Sin datos</span>}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <p className="text-slate-600 text-sm">No hay registros anónimos aún</p>
+                    )}
+                  </div>
                 </div>
               )}
 
