@@ -141,10 +141,11 @@ export default function AdminPage() {
               {/* Overview */}
               {tab === "overview" && (
                 <div className="space-y-6 animate-fade-in">
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     {[
                       { label: "Registros totales", value: String(overview.totalEntries ?? 0), icon: <Heart className="w-4 h-4" />, color: "text-[#FF6B9D]" },
                       { label: "Bienestar promedio", value: `${overview.avgWellbeing ?? 0}/10`, icon: <TrendingUp className="w-4 h-4" />, color: "text-emerald-400" },
+                      { label: "Usuarios anónimos", value: String(overview.anonymousEntries ?? 0), icon: <Users className="w-4 h-4" />, color: "text-[#6C63FF]" },
                       { label: "Alertas de riesgo", value: String(overview.riskAlerts ?? 0), icon: <AlertTriangle className="w-4 h-4" />, color: "text-red-400" },
                     ].map((kpi, i) => (
                       <div key={i} className="glass-card rounded-2xl p-4">

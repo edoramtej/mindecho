@@ -18,9 +18,10 @@ export async function GET() {
     const adminId = await requireAdmin();
     if (!adminId) return NextResponse.json({ error: "Acceso denegado" }, { status: 403 });
 
-    const [totalEntries, riskAlerts, entries] = await Promise.all([
+    const [totalEntries, riskAlerts, anonymousEntries, entries] = await Promise.all([
       prisma.entry.count(),
       prisma.entry.count({ where: { riskLevel: { in: ["HIGH", "CRITICAL"] } } }),
+      prisma.entry.count({ where: { userId: null } }),
       prisma.entry.findMany({
         select: {
           sentiment: true, wellbeingScore: true, riskLevel: true,
@@ -110,7 +111,7 @@ export async function GET() {
       }));
 
     return NextResponse.json({
-      overview: { totalEntries, riskAlerts, avgWellbeing: parseFloat(avgWellbeing.toFixed(1)) },
+      overview: { totalEntries, riskAlerts, avgWellbeing: parseFloat(avgWellbeing.toFixed(1)), anonymousEntries, authenticatedEntries: totalEntries - anonymousEntries },
       sentimentCounts,
       sentimentTrend,
       topTopics,
