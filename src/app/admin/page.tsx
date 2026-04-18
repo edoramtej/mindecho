@@ -26,7 +26,7 @@ const typeLabels: Record<string, string> = {
   ANXIETY_CRISIS: "Crisis de ansiedad", SUBSTANCE_ABUSE: "Sustancias",
   IDENTITY_CRISIS: "Crisis de identidad", GENERAL: "General",
 };
-const channelLabels: Record<string, string> = { PHONE: "Teléfono", WHATSAPP: "WhatsApp", CHAT_ONLINE: "Chat online", EMAIL: "Email" };
+const channelLabels: Record<string, string> = { PHONE: "Teléfono", WHATSAPP: "WhatsApp", CHAT_ONLINE: "Chat online", EMAIL: "Email", SOCIAL_MEDIA: "Redes Sociales" };
 
 type Resource = { id: number; name: string; country: string; type: string; channel: string; contact: string; schedule: string; isFree: boolean; isActive: boolean };
 const initialResources: Resource[] = [
@@ -57,6 +57,7 @@ export default function AdminPage() {
   const [forbidden, setForbidden] = useState(false);
   const [resources, setResources] = useState<Resource[]>(initialResources);
   const [showModal, setShowModal] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [newResource, setNewResource] = useState({ name: "", country: "", type: "GENERAL", channel: "PHONE", contact: "", schedule: "24/7", isFree: true });
   const [personalEntries, setPersonalEntries] = useState<PersonalEntry[]>([]);
   const [personalStats, setPersonalStats] = useState<PersonalStats | null>(null);
@@ -91,11 +92,20 @@ export default function AdminPage() {
     }
   };
 
-  const handleAddResource = () => {
+  const emptyResource = { name: "", country: "", type: "GENERAL", channel: "PHONE", contact: "", schedule: "24/7", isFree: true };
+
+  const openAdd = () => { setEditingId(null); setNewResource(emptyResource); setShowModal(true); };
+  const openEdit = (r: Resource) => { setEditingId(r.id); setNewResource({ name: r.name, country: r.country, type: r.type, channel: r.channel, contact: r.contact, schedule: r.schedule, isFree: r.isFree }); setShowModal(true); };
+  const closeModal = () => { setShowModal(false); setEditingId(null); setNewResource(emptyResource); };
+
+  const handleSaveResource = () => {
     if (!newResource.name || !newResource.contact) return;
-    setResources(prev => [...prev, { ...newResource, id: Date.now(), isActive: true }]);
-    setShowModal(false);
-    setNewResource({ name: "", country: "", type: "GENERAL", channel: "PHONE", contact: "", schedule: "24/7", isFree: true });
+    if (editingId !== null) {
+      setResources(prev => prev.map(r => r.id === editingId ? { ...r, ...newResource } : r));
+    } else {
+      setResources(prev => [...prev, { ...newResource, id: Date.now(), isActive: true }]);
+    }
+    closeModal();
   };
   const toggleResource = (id: number) => setResources(prev => prev.map(r => r.id === id ? { ...r, isActive: !r.isActive } : r));
 
@@ -427,7 +437,7 @@ export default function AdminPage() {
                 <div className="space-y-4 animate-fade-in">
                   <div className="flex justify-between items-center">
                     <p className="text-sm text-slate-400">{resources.length} recursos configurados</p>
-                    <button onClick={() => setShowModal(true)}
+                    <button onClick={openAdd}
                       className="flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-[#6C63FF] to-[#FF6B9D] text-white text-sm font-medium hover:opacity-90 transition-opacity cursor-pointer">
                       <Plus className="w-4 h-4" /> Agregar recurso
                     </button>
@@ -436,23 +446,29 @@ export default function AdminPage() {
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b border-white/5">
-                          {["Nombre", "País", "Tipo", "Canal", "Contacto", "Horario", "Estado"].map(h => (
-                            <th key={h} className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wide">{h}</th>
+                          {["Nombre", "País", "Tipo", "Canal", "Contacto", "Horario", "Estado", ""].map((h, i) => (
+                            <th key={i} className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wide">{h}</th>
                           ))}
                         </tr>
                       </thead>
                       <tbody>
                         {resources.map(r => (
-                          <tr key={r.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                          <tr key={r.id} className="border-b border-white/5 hover:bg-white/5 transition-colors group">
                             <td className="px-4 py-3 text-white font-medium">{r.name}</td>
                             <td className="px-4 py-3 text-slate-400">{r.country}</td>
                             <td className="px-4 py-3"><span className="px-2 py-0.5 rounded-full text-xs bg-[#6C63FF]/20 text-[#6C63FF]">{typeLabels[r.type]}</span></td>
-                            <td className="px-4 py-3 text-slate-400">{channelLabels[r.channel]}</td>
+                            <td className="px-4 py-3 text-slate-400">{channelLabels[r.channel] ?? r.channel}</td>
                             <td className="px-4 py-3 text-slate-300 font-mono text-xs">{r.contact}</td>
                             <td className="px-4 py-3 text-slate-400">{r.schedule}</td>
                             <td className="px-4 py-3">
-                              <button onClick={() => toggleResource(r.id)} className="cursor-pointer" aria-label="Toggle">
+                              <button onClick={() => toggleResource(r.id)} className="cursor-pointer" aria-label="Toggle activo">
                                 {r.isActive ? <ToggleRight className="w-5 h-5 text-emerald-400" /> : <ToggleLeft className="w-5 h-5 text-slate-600" />}
+                              </button>
+                            </td>
+                            <td className="px-4 py-3">
+                              <button onClick={() => openEdit(r)} aria-label="Editar recurso"
+                                className="opacity-0 group-hover:opacity-100 px-3 py-1 rounded-lg text-xs text-slate-400 hover:text-white hover:bg-white/10 transition-all cursor-pointer">
+                                Editar
                               </button>
                             </td>
                           </tr>
@@ -461,11 +477,13 @@ export default function AdminPage() {
                     </table>
                   </div>
                   {showModal && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-                      <div className="glass-card rounded-3xl p-6 w-full max-w-md animate-fade-in">
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+                      <div className="bg-[#0F0F2A] border border-white/15 rounded-3xl p-6 w-full max-w-md shadow-2xl animate-fade-in">
                         <div className="flex items-center justify-between mb-5">
-                          <h2 className="text-lg font-bold text-white">Agregar recurso de crisis</h2>
-                          <button onClick={() => setShowModal(false)} className="text-slate-400 hover:text-white cursor-pointer"><X className="w-5 h-5" /></button>
+                          <h2 className="text-lg font-bold text-white">
+                            {editingId !== null ? "Editar recurso de crisis" : "Agregar recurso de crisis"}
+                          </h2>
+                          <button onClick={closeModal} className="text-slate-400 hover:text-white cursor-pointer"><X className="w-5 h-5" /></button>
                         </div>
                         <div className="space-y-3">
                           {[{ label: "Nombre", key: "name", placeholder: "Ej: Línea de la Vida" }, { label: "País", key: "country", placeholder: "Ej: México" }, { label: "Contacto", key: "contact", placeholder: "Ej: 800 911 2000" }, { label: "Horario", key: "schedule", placeholder: "Ej: 24/7" }].map(f => (
@@ -474,36 +492,38 @@ export default function AdminPage() {
                               <input type="text" placeholder={f.placeholder}
                                 value={(newResource as Record<string, unknown>)[f.key] as string}
                                 onChange={e => setNewResource(prev => ({ ...prev, [f.key]: e.target.value }))}
-                                className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-[#6C63FF]/50" />
+                                className="w-full px-3 py-2.5 rounded-xl bg-white/10 border border-white/15 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-[#6C63FF]/60" />
                             </div>
                           ))}
                           <div className="grid grid-cols-2 gap-3">
                             <div>
                               <label className="block text-xs text-slate-400 mb-1">Tipo</label>
                               <select value={newResource.type} onChange={e => setNewResource(prev => ({ ...prev, type: e.target.value }))}
-                                className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-sm text-white focus:outline-none cursor-pointer">
-                                {Object.entries(typeLabels).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                                className="w-full px-3 py-2.5 rounded-xl bg-white/10 border border-white/15 text-sm text-white focus:outline-none cursor-pointer">
+                                {Object.entries(typeLabels).map(([k, v]) => <option key={k} value={k} className="bg-[#0F0F2A]">{v}</option>)}
                               </select>
                             </div>
                             <div>
                               <label className="block text-xs text-slate-400 mb-1">Canal</label>
                               <select value={newResource.channel} onChange={e => setNewResource(prev => ({ ...prev, channel: e.target.value }))}
-                                className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-sm text-white focus:outline-none cursor-pointer">
-                                {Object.entries(channelLabels).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                                className="w-full px-3 py-2.5 rounded-xl bg-white/10 border border-white/15 text-sm text-white focus:outline-none cursor-pointer">
+                                {Object.entries(channelLabels).map(([k, v]) => <option key={k} value={k} className="bg-[#0F0F2A]">{v}</option>)}
                               </select>
                             </div>
                           </div>
                           <label className="flex items-center gap-2 cursor-pointer">
                             <div onClick={() => setNewResource(prev => ({ ...prev, isFree: !prev.isFree }))}
-                              className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${newResource.isFree ? "bg-[#6C63FF] border-[#6C63FF]" : "border-white/20 bg-white/5"}`}>
+                              className={`w-4 h-4 rounded border flex items-center justify-center transition-all cursor-pointer ${newResource.isFree ? "bg-[#6C63FF] border-[#6C63FF]" : "border-white/30 bg-white/10"}`}>
                               {newResource.isFree && <Check className="w-2.5 h-2.5 text-white" />}
                             </div>
                             <span className="text-sm text-slate-300">Servicio gratuito</span>
                           </label>
                         </div>
                         <div className="flex gap-3 mt-5">
-                          <button onClick={() => setShowModal(false)} className="flex-1 py-2.5 rounded-full glass-card text-sm text-slate-400 hover:text-white cursor-pointer">Cancelar</button>
-                          <button onClick={handleAddResource} className="flex-1 py-2.5 rounded-full bg-gradient-to-r from-[#6C63FF] to-[#FF6B9D] text-white text-sm font-semibold hover:opacity-90 cursor-pointer">Guardar</button>
+                          <button onClick={closeModal} className="flex-1 py-2.5 rounded-full bg-white/10 border border-white/15 text-sm text-slate-300 hover:text-white hover:bg-white/15 transition-all cursor-pointer">Cancelar</button>
+                          <button onClick={handleSaveResource} className="flex-1 py-2.5 rounded-full bg-gradient-to-r from-[#6C63FF] to-[#FF6B9D] text-white text-sm font-semibold hover:opacity-90 cursor-pointer">
+                            {editingId !== null ? "Guardar cambios" : "Agregar"}
+                          </button>
                         </div>
                       </div>
                     </div>
