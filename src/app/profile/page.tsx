@@ -119,7 +119,14 @@ export default function ProfilePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      if (res.ok) { setSaved(true); setTimeout(() => setSaved(false), 3000); }
+      if (res.ok) {
+        const data = await res.json();
+        if (data.displayName !== undefined) {
+          setForm(prev => ({ ...prev, displayName: data.displayName ?? "" }));
+        }
+        setSaved(true);
+        setTimeout(() => setSaved(false), 3000);
+      }
     } finally {
       setSaving(false);
     }

@@ -11,7 +11,7 @@ export async function GET() {
 
     // Resolve Clerk ID → internal DB user ID
     const user = await prisma.user.findUnique({ where: { clerkId: clerkUserId } });
-    if (!user) return NextResponse.json({ entries: [], stats: null });
+    if (!user) return NextResponse.json({ entries: [], stats: null, displayName: null });
 
     const entries = await prisma.entry.findMany({
       where: { userId: user.id },
@@ -24,7 +24,7 @@ export async function GET() {
       },
     });
 
-    if (entries.length === 0) return NextResponse.json({ entries: [], stats: null });
+    if (entries.length === 0) return NextResponse.json({ entries: [], stats: null, displayName: user.displayName ?? null });
 
     const withScore = entries.filter(e => e.wellbeingScore !== null);
     const avgWellbeing = withScore.length

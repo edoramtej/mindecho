@@ -101,7 +101,7 @@ export async function PUT(req: NextRequest) {
       await prisma.profileHistory.createMany({ data: historyEntries });
     }
 
-    return NextResponse.json({ sociodemographic: socio, changes: historyEntries.length });
+    return NextResponse.json({ sociodemographic: socio, displayName: user.displayName, changes: historyEntries.length });
   } catch (error) {
     console.error("Profile PUT error:", error);
     return NextResponse.json({ error: "Error al guardar perfil" }, { status: 500 });
